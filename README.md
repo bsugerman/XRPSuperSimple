@@ -279,5 +279,19 @@ drivetrain in `robot.py`'s `robotPeriodic` function:
 If we want to implement a feedforward static friction term, we just need to
 make sure that the two speeds `fwd_speed` and `turn_speed` are never less
 than some `kS` value that we have to determine by experimentation. Right now
-the speed value runs from 0.0 to $\pm$1.0. 
+the speed value runs from 0.0 to 1.0. We need to remap that to run from
+`kS` to 1.0, except if speed==0.0, in which case we leave it alone. We
+also need to make sure that if speed is negative, it stays that way. There
+are lots of ways to compute this. Here is just one:
+
+```
+def apply_ks(speed: float, ks: float = kS) -> float:
+    if speed == 0.0:
+        return 0.0
+    return math.copysign(ks + (1.0 - ks) * abs(speed), speed)
+```
+
+Now when we read a speed from the controller, after applying deadband,
+we can also apply feedforward correction. Or we can be really clever and
+do both deadband and feedforward in the same function.
 

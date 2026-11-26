@@ -32,6 +32,20 @@ os.environ["HALSIMXRP_HOST"] = "192.168.42.1"
 os.environ["HALSIMXRP_PORT"] = "3540"
 
 DEADBAND = 0.1
+kS = 0.0
+
+def apply_ks(speed: float, ks: float = kS) -> float:
+    if speed == 0.0:
+        return 0.0
+    return math.copysign(ks + (1.0 - ks) * abs(speed), speed)
+
+def feedforward(speed: float, ks: float = kS, deadband=DEADBAND) -> float:
+    deadbanded_speed = wpimath.applyDeadband(
+        self.joystick.getRawAxis(1),
+        DEADBAND
+    )
+    usable_speed = apply_ks(deadbanded_speed, ks)
+    return usable_speed
 
 class MyRobot(wpilib.TimedRobot):
 
@@ -48,18 +62,21 @@ class MyRobot(wpilib.TimedRobot):
         self.arm = arm.Arm()
 
 
+
     def robotPeriodic(self) -> None:
         """This function is called periodically (by default, 50 times per second)"""
         super().robotPeriodic()
 
         # 1. driving: take the speeds from joystick
-        fwd_speed = wpimath.applyDeadband(
+        fwd_speed = feedforward(
             -self.joystick.getRawAxis(1),
-            DEADBAND
-        )
-        turn_speed = wpimath.applyDeadband(
+            DEADBAND,
+            kS
+            )
+        turn_speed = feedforward(
             self.joystick.getRawAxis(0),
-            DEADBAND
+            DEADBAND,
+            kS
         )
         #if self.drivetrain.getDistanceToObstacle() < 0.15 and fwd_speed > 0:
         #    fwd_speed = 0.
