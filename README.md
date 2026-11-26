@@ -130,28 +130,76 @@ Put them all together and that is PID.
 In code, PID is a math equation for automation, where you define the
 constants `kP`, `kI`, and `kD`, and a goal, like move forward 1 meter
 or rotate this arm to 90 degrees. Let's use the example of the distance
-sensor and stopping at 20 cm from an object. You start 50 cm away and
-we define our **setpoint** as 20 cm. 
+sensor and stopping at 20 cm from an object. You start 0.5 m away, 
+we define our **setpoint** as 0.2 m, and we define `kP=3`. 
 
-1. You need to move 50-20=30 cm. The `kP` term says to move forward
- proportional to that amount, meaning fast.
-2. The next distance reading says you are 30 cm away, so you need to move 10
- cm. Your 'kP' term now sees a smaller distance and will say to move
- proportional to 10 cm, meaning slower.
-3. The next distance reading says you are 15 cm away. You wanted to be 20 cm.
- So you need to move 15-20=-5 cm, backwards! The `kP` term sees a negative
- and needs to move proporionally to that, meaning backwards slowly.
-4. The next distance reading says you are 22 cm away. You wanted to be 20 cm.
- So you need to move 22-2=2 cm forwards. The `kP` term will now move you
- forward, and you probably overshoot.
-5. Now you oscillate backwards and forwards over and over again, trying
- to get infinitely close to exactly 20 cm.
+* Reading 1: You are at 0.5 m and the goal is 0.2 m.
+  * The error is `0.5 - 0.2 = 0.3 m`
+  * `kP` calculates `0.3*3` and sends 90% power. The robot rockets forward
+* Reading 2: You are now at 0.3 m.
+  * The error is `0.3 - 0.2 = 0.1 m`.
+  * `kP` calculates `0.1*3` and sends 30% power. The robot slows down, but
+  it was already moving fast, so its momentum still carries it fast.
+* Reading 3: Momentum made it overshoot and it is now at 0.1 m.
+  * The error is `0.1 - 0.2 = -0.1 m`
+  * `kP` calculates `-0.1*3` and sends 30% power to drive the robot
+  backwards.
+* Reading 4: The robot overshoots to 0.25 m.
+  * The error is `0.25 - 0.2 = 0.05 m`
+  * `kP` calculates 15% power to drive forward.
+* Future readings: 
+  * The robot drives forward, and overshoots, backs up and overshoots,
+  and keeps this up until the power level is too low to overcome static
+  friction. The motors whine and never stop. 
 
-OK that's stupid. Let's build in a **tolerance** that says "if we are
-within this distance from our setpoint, stop." We could use a
-tolerance of 2 cm. That stops some of the oscillation. But maybe the
-speed of our first jump from 50 to 30 cm was way too fast. We could
-lower `kP` and the robot would move slower in that first jump. It
-would also move slower in every other step. So instead, let's try to
-slow it down when it tries to change its speed by a huge amount by
-applying a `kD` term, to stop huge sudden changes. 
+OK, these oscillations are ridiculous, and unnecessary. Let's build in
+a **tolerance** that says "if we are within this distance from our
+setpoint, stop." We could use a tolerance of 1 cm. That stops some of
+the oscillation at the end. But the speed of our first jump from
+50 to 30 cm was clearly way too fast. We could lower `kP` and the robot would
+move slower in that first jump. It would also move slower in every
+other step. So instead, let's try to slow it down when it tries to
+change its speed by a huge amount by applying a `kD` (Derivative)
+term, to stop huge sudden changes. So let's imagine we have `kP` and
+`kD` tuned nicely, so the robot doesn't violently overshoot anymore.
+Maybe `kP` is now 2. Let's retrace the readings for the steps above:
+
+* Reading 1: You are at 0.5 m and the goal is 0.2 m. `kP` sends 60% power and
+  the robot drives forward to 0.35 m.
+* Reading 2: You are now 0.15 m away.  `kP` sends 30% power and drives
+  the robot forward to 0.28 m.
+* Reading 3: You are now 0.08 m away. `kP` sends 16% power and drives
+ the robot forward to 0.23 m.
+* Reading 4: You are now 0.03 m away. `kP` sends 6% power, which is too little
+  to move the robot, and the motors whine forever because they aren't within
+  our 0.01-m tolerance.
+
+The `kI` (Integral) term is a "frustration timer" that adds up your
+remaining error over time to give the motors an extra push when `kP`
+alone isn't strong enough to reach the target.  Continuing directly
+with the example above, here is how `kI` solves it.
+
+* Reading 5: You are still 0.03 m away. `kI` sees an 0.03-m error and adds 1%
+  extra power.
+* Reading 6-10: You are still 0.03 m away. 'kI` adds another 1% extra power
+  at each reading.
+* Reading 11: You reach 12% power which was enough to overcome friction,
+  and the robot creeps forward until it reaches less than 0.01-m distance. 
+
+There is a danger with using `kI` however. By the time we reach the threshold
+distance, `kI` might have added in so much extra power that we still
+overshoot. This is called "the integral windup". The Integral term can
+be very helpful when fighting against a constant force like gravity or
+to keep a flywheel spinning at an exact speed, but for driving a robot,
+people often leave `kI=0`.
+
+At this point, you might be saying to yourself "Wait a minute!
+Feed-forward provides a static-friction term `S` that keeps the motor
+able to turn all the time." And indeed, feed-forward can be added to
+PID for this very purpose. We set a minimum power level that is _just_
+enough to almost overcome static friction, and then if the `kP` term
+gives 2% power, that is 2% on top of whatever was needed to overcome
+internal friction, and so to motors actually turn. No need for `kI`.
+
+## 
+
