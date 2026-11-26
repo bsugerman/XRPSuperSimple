@@ -201,5 +201,46 @@ enough to almost overcome static friction, and then if the `kP` term
 gives 2% power, that is 2% on top of whatever was needed to overcome
 internal friction, and so to motors actually turn. No need for `kI`.
 
-## 
+## More about FeedForward **
 
+Feed Forward also includes a `kV` term for velocity and `kA` term for
+acceleration, in addition to the `kS` term for static friction. In our
+example above, if we needed 11% power just to make the motor start to turn,
+we would set `kS=0.11`. Once we reach the setpoint, we cut all power to
+0% so kS stops pushing.
+
+`kV` and `kA` are only used when there is a moving target, meaning
+we aren't saying "get to 0.2-m distance eventually," but we are
+following a smooth speed schedule that dictates how fast you
+should be moving at every millisecond. These are called "Motion Profiles"
+and a common one is the Trapezoidal Profile, which has a ramp up
+to a constant speed, a duration at that speed, then a ramp down to
+stopping. 
+
+* `kV` is velocity feedforward: the poewr to keep cruising at steady
+ speed.  Imagine you want the robot to drive at a steady 1 meter per
+ second. Because of air resistance, gear drag, and motor back-EMF
+ (electricity the spinning motor generates against your battery), it
+ might take a constant 40% power just to maintain 1 m/s. If you only
+ used kP, the robot would have to fall behind its schedule to create
+ enough error to generate that 40% power. kV supplies that 40% upfront
+ so kP stays near zero.
+
+* `kA` is acceleration feedforward: the extra burst of power needed to
+change speed. Pushing a heavy robot from 0 m/s up to 1 m/s takes way
+more muscle than keeping it rolling once it's already moving (just
+like pushing a heavy shopping cart). When your motion profile says
+"accelerate right now," kA gives an instant kick of extra power so the
+heavy robot doesn't lag behind at the start-and gives a reverse kick
+when it's time to brake.
+
+## When do I need what?
+
+* Simple point-to-point movement: `kS` overcomes static friction, and `kP`
+gets you from Point A to B. You might need `kD` for braking.
+
+* Smoothly-controlled speed or autonomous path: `kS`, `kV`, `kA` are
+going to do 90% of the work, and `kP` will clean up little bumps or
+wiggles, like literal bumps in the road or a battery lag.
+
+# Using feedforward with our XRP robot
