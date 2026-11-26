@@ -72,7 +72,7 @@ class Drivetrain(commands2.Subsystem):
         :param fwd: the commanded forward movement
         :param rot: the commanded rotation
         """
-        self.drive.arcadeDrive(fwd, -rot)
+        self.drive.arcadeDrive(fwd, -rot, False)
 
     def stop(self) -> None:
         """

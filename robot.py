@@ -33,12 +33,25 @@ os.environ["HALSIMXRP_HOST"] = "192.168.42.1"
 os.environ["HALSIMXRP_PORT"] = "3540"
 
 DEADBAND = 0.1
-kS = 0.0
+kS = 0.
+
+def squareSpeed(speed: float) -> float:
+    return math.copysign(speed**2,speed)
 
 def apply_ks(speed: float, ks: float = kS) -> float:
     if speed == 0.0:
         return 0.0
     return math.copysign(ks + (1.0 - ks) * abs(speed), speed)
+
+def feedforward(speed: float, ks: float = kS, deadband=DEADBAND) -> float:
+    deadbanded_speed = wpimath.applyDeadband(
+        speed,
+        DEADBAND,
+    )
+    usable_speed = apply_ks(deadbanded_speed, ks)
+    #print(speed, deadbanded_speed, usable_speed)
+    return usable_speed
+
 
 class MyRobot(wpilib.TimedRobot):
 
@@ -47,7 +60,7 @@ class MyRobot(wpilib.TimedRobot):
         This function is run when the robot is first started up and should be used for any
         initialization code.
         """
-        # Assumes a gamepad plugged into channnel 0
+        # Assumes a gamepad plugged into channel 0
         self.joystick = wpilib.Joystick(0)
 
         # create a drivetrain (contains two motors, two encoders and a gyro)
@@ -61,29 +74,21 @@ class MyRobot(wpilib.TimedRobot):
         super().robotPeriodic()
 
         # 1. driving: take the speeds from joystick
-        fwd_speed = self.feedforward(
+        fwd_speed = feedforward(
             -self.joystick.getRawAxis(1),
+            kS,
             DEADBAND,
-            kS
             )
-        turn_speed = self.feedforward(
+        turn_speed = feedforward(
             self.joystick.getRawAxis(0),
+            kS,
             DEADBAND,
-            kS
-        )
+            )
         #if self.drivetrain.getDistanceToObstacle() < 0.15 and fwd_speed > 0:
         #    fwd_speed = 0.
 
-        self.drivetrain.arcadeDrive(fwd_speed, turn_speed)
+        self.drivetrain.arcadeDrive(fwd_speed,(turn_speed))
         self.drivetrain.periodic()  # updates odometry
-
-    def feedforward(self, speed: float, ks: float = kS, deadband=DEADBAND) -> float:
-        deadbanded_speed = wpimath.applyDeadband(
-            self.joystick.getRawAxis(1),
-            DEADBAND
-        )
-        usable_speed = apply_ks(deadbanded_speed, ks)
-        return usable_speed
 
     def teleopPeriodic(self) -> None:
         """This function is called periodically when in operator control mode"""
