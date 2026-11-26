@@ -23,6 +23,7 @@
 import os
 import wpilib
 import wpimath
+import math
 
 import drivetrain
 import arm
@@ -38,14 +39,6 @@ def apply_ks(speed: float, ks: float = kS) -> float:
     if speed == 0.0:
         return 0.0
     return math.copysign(ks + (1.0 - ks) * abs(speed), speed)
-
-def feedforward(speed: float, ks: float = kS, deadband=DEADBAND) -> float:
-    deadbanded_speed = wpimath.applyDeadband(
-        self.joystick.getRawAxis(1),
-        DEADBAND
-    )
-    usable_speed = apply_ks(deadbanded_speed, ks)
-    return usable_speed
 
 class MyRobot(wpilib.TimedRobot):
 
@@ -68,12 +61,12 @@ class MyRobot(wpilib.TimedRobot):
         super().robotPeriodic()
 
         # 1. driving: take the speeds from joystick
-        fwd_speed = feedforward(
+        fwd_speed = self.feedforward(
             -self.joystick.getRawAxis(1),
             DEADBAND,
             kS
             )
-        turn_speed = feedforward(
+        turn_speed = self.feedforward(
             self.joystick.getRawAxis(0),
             DEADBAND,
             kS
@@ -84,6 +77,13 @@ class MyRobot(wpilib.TimedRobot):
         self.drivetrain.arcadeDrive(fwd_speed, turn_speed)
         self.drivetrain.periodic()  # updates odometry
 
+    def feedforward(self, speed: float, ks: float = kS, deadband=DEADBAND) -> float:
+        deadbanded_speed = wpimath.applyDeadband(
+            self.joystick.getRawAxis(1),
+            DEADBAND
+        )
+        usable_speed = apply_ks(deadbanded_speed, ks)
+        return usable_speed
 
     def teleopPeriodic(self) -> None:
         """This function is called periodically when in operator control mode"""
