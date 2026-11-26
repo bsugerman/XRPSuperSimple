@@ -101,7 +101,7 @@ robot, etc. Why not just adjust everything so that the smallest
 speed the motor is allowed to turn is just above this level of static
 friction?
 
-Guess what? That is what Feed-Forward motor controls do. If you've
+Guess what? That is what Feedforward motor controls do. If you've
 ever heard someone talk about "PID Tuning" and they mention setting
 the "S, V, and A" constants, they are doing feed-forward motor
 control. The "S" term (sometime written `kS` in WPILib code) is the
@@ -201,7 +201,7 @@ enough to almost overcome static friction, and then if the `kP` term
 gives 2% power, that is 2% on top of whatever was needed to overcome
 internal friction, and so to motors actually turn. No need for `kI`.
 
-## More about FeedForward **
+## More about FeedForward 
 
 Feed Forward also includes a `kV` term for velocity and `kA` term for
 acceleration, in addition to the `kS` term for static friction. In our
@@ -244,3 +244,40 @@ going to do 90% of the work, and `kP` will clean up little bumps or
 wiggles, like literal bumps in the road or a battery lag.
 
 # Using feedforward with our XRP robot
+
+WPILib includes built-in support for PID and feedforward controlling.
+Unfortunately, they give output in Volts and our XRP robot needs drive
+values in percentages from -1 to 1. So using WPILib's
+`SimpleMotorFeedforward` class would require a little swindle by dividing
+all its output by 12 (assuming it thinks it is sending 12 V to a motor). We'll
+try that out in a bit, but first, let's try some cheap-and-dirty methods.
+
+** Adding feedforard `kS` manually.
+
+We have a controller sending drive values between -1 to +1 to the
+drivetrain in `robot.py`'s `robotPeriodic` function:
+
+```
+    def robotPeriodic(self) -> None:
+        """This function is called periodically (by default, 50 times per second)"""
+        super().robotPeriodic()
+
+        # 1. driving: take the speeds from joystick
+        fwd_speed = wpimath.applyDeadband(
+            -self.joystick.getRawAxis(1),
+            DEADBAND
+        )
+        turn_speed = wpimath.applyDeadband(
+            self.joystick.getRawAxis(0),
+            DEADBAND
+        )
+
+        self.drivetrain.arcadeDrive(fwd_speed, turn_speed)
+        self.drivetrain.periodic()  # updates odometry
+```
+
+If we want to implement a feedforward static friction term, we just need to
+make sure that the two speeds `fwd_speed` and `turn_speed` are never less
+than some `kS` value that we have to determine by experimentation. Right now
+the speed value runs from 0.0 to $\pm$1.0. 
+
