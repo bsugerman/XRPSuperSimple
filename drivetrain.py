@@ -149,7 +149,7 @@ class Drivetrain(commands2.Subsystem):
         :returns: Distance in meters, values >0.5 are not very reliable and are replaced with nan.
         """
         distance = self.distanceSensor.getDistance()
-        return distance if distance < 0.5 else math.nan
+        return distance if distance < 0.5 else math.nan # change to 999?
 
     def resetGyro(self) -> None:
         """Reset the gyro"""

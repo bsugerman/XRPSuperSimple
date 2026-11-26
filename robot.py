@@ -22,6 +22,7 @@
 
 import os
 import wpilib
+import wpimath
 
 import drivetrain
 import arm
@@ -29,6 +30,8 @@ import arm
 # If your XRP isn't at the default address, set that here
 os.environ["HALSIMXRP_HOST"] = "192.168.42.1"
 os.environ["HALSIMXRP_PORT"] = "3540"
+
+DEADBAND = 0.1
 
 class MyRobot(wpilib.TimedRobot):
 
@@ -50,8 +53,17 @@ class MyRobot(wpilib.TimedRobot):
         super().robotPeriodic()
 
         # 1. driving: take the speeds from joystick
-        fwd_speed = -self.joystick.getRawAxis(1)
-        turn_speed = self.joystick.getRawAxis(0)
+        fwd_speed = wpimath.applyDeadband(
+            -self.joystick.getRawAxis(1),
+            DEADBAND
+        )
+        turn_speed = wpimath.applyDeadband(
+            self.joystick.getRawAxis(0),
+            DEADBAND
+        )
+        #if self.drivetrain.getDistanceToObstacle() < 0.15 and fwd_speed > 0:
+        #    fwd_speed = 0.
+
         self.drivetrain.arcadeDrive(fwd_speed, turn_speed)
         self.drivetrain.periodic()  # updates odometry
 
