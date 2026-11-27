@@ -33,7 +33,7 @@ os.environ["HALSIMXRP_HOST"] = "192.168.42.1"
 os.environ["HALSIMXRP_PORT"] = "3540"
 
 DEADBAND = 0.1
-kS = 0.
+kS = 0.5
 
 def squareSpeed(speed: float) -> float:
     return math.copysign(speed**2,speed)
@@ -43,14 +43,24 @@ def apply_ks(speed: float, ks: float = kS) -> float:
         return 0.0
     return math.copysign(ks + (1.0 - ks) * abs(speed), speed)
 
-def feedforward(speed: float, ks: float = kS, deadband=DEADBAND) -> float:
-    deadbanded_speed = wpimath.applyDeadband(
-        speed,
-        DEADBAND,
-    )
-    usable_speed = apply_ks(deadbanded_speed, ks)
-    #print(speed, deadbanded_speed, usable_speed)
-    return usable_speed
+def feedforward(fwd: float,
+                turn: float,
+                ks: float = kS,
+                deadband: float = DEADBAND) -> tuple[float, float]:
+    # Apply 2D radial deadband
+    magnitude = math.hypot(fwd, turn)
+    if magnitude <= deadband:
+        return 0.0, 0.0
+
+    # Rescale magnitude smoothly from [deadband, 1.0] -> [0.0, 1.0]
+    norm_mag = min((magnitude - deadband) / (1.0 - deadband), 1.0)
+
+    # Apply kS to the overall magnitude, not individual axes
+    scaled_mag = ks + (1.0 - ks) * norm_mag
+
+    # Project back onto fwd and turn using the original angle
+    scale_factor = scaled_mag / magnitude
+    return fwd * scale_factor, turn * scale_factor
 
 
 class MyRobot(wpilib.TimedRobot):
@@ -74,12 +84,8 @@ class MyRobot(wpilib.TimedRobot):
         super().robotPeriodic()
 
         # 1. driving: take the speeds from joystick
-        fwd_speed = feedforward(
+        fwd_speed, turn_speed = feedforward(
             -self.joystick.getRawAxis(1),
-            kS,
-            DEADBAND,
-            )
-        turn_speed = feedforward(
             self.joystick.getRawAxis(0),
             kS,
             DEADBAND,

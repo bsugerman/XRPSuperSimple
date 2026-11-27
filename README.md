@@ -293,5 +293,52 @@ def apply_ks(speed: float, ks: float = kS) -> float:
 
 Now when we read a speed from the controller, after applying deadband,
 we can also apply feedforward correction. Or we can be really clever and
-do both deadband and feedforward in the same function.
+do both deadband and feedforward in the same function. However, this
+causes something disastrous. Let say we want to go straight forward, but
+the controller is just a tiny bit to the left. So the `fwd_speed=0.90`
+and the `turn_speed=0.1`. Because kS was applied to each drive speed
+separately, the motors receive `fwd_speed=0.90` and `turn_speed=kS`. Now
+we are turning wildly even though we wanted to go straight.
+
+What this raises is that **tiny changes in the drive code can have huge
+impacts on how the robot behaves**, which explains why so much time and
+care has to be spent at the beginning of any programming season with
+"tuning" the drives, i.e. making sure they act the way they should for
+autonomous driving, and the way that works for humans during
+teleoperated driving.
+
+One solution is to treat the `fwd` and `turn` speeds as the y and x
+components of a vector, and apply deadband/kS to the length of that vector.
+Here is a version of that code:
+
+```
+def feedforward(fwd: float,
+                turn: float,
+                ks: float = kS,
+                deadband: float = DEADBAND) -> tuple[float, float]:
+    # Apply 2D radial deadband
+    magnitude = math.hypot(fwd, turn)
+    if magnitude <= deadband:
+        return 0.0, 0.0
+
+    # Rescale magnitude smoothly from [deadband, 1.0] -> [0.0, 1.0]
+    norm_mag = min((magnitude - deadband) / (1.0 - deadband), 1.0)
+
+    # Apply kS to the overall magnitude, not individual axes
+    scaled_mag = ks + (1.0 - ks) * norm_mag
+
+    # Project back onto fwd and turn using the original angle
+    scale_factor = scaled_mag / magnitude
+    return fwd * scale_factor, turn * scale_factor
+ ```
+
+then we use it in `robotPeriodic` as
+```
+        fwd_speed, turn_speed = feedforward(
+            -self.joystick.getRawAxis(1),
+            self.joystick.getRawAxis(0),
+            kS,
+            DEADBAND,
+            )
+```
 
